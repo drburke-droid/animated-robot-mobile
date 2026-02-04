@@ -44,6 +44,7 @@ function setNerve(side, num, val) {
 window.resetSystem = () => {
   Object.keys(SYSTEM_STATE.nerves).forEach(k => SYSTEM_STATE.nerves[k] = 1);
   ['right','left'].forEach(s => MUSCLES.forEach(m => SYSTEM_STATE.muscles[s][m] = 1));
+  document.querySelectorAll('.path-btn').forEach(b => b.classList.remove('active-path'));
   updateUIStyles();
 };
 
@@ -57,8 +58,15 @@ window.toggleState = (id, side = null, m = null) => {
 window.applyPathology = (side) => {
   resetSystem();
   PATHOLOGIES[activePathName].f(side);
+  
+  // Highlight the active selection
+  document.querySelectorAll('.path-btn').forEach(b => {
+    if(b.innerText === activePathName) b.classList.add('active-path');
+  });
+
   updateUIStyles();
   document.getElementById('side-modal').style.display = 'none';
+  if(window.collapseAllMenus) window.collapseAllMenus();
 };
 
 function updateUIStyles() {
@@ -91,8 +99,11 @@ function initUI() {
 
   const grid = document.getElementById('pathology-grid'); if(!grid) return;
   Object.keys(PATHOLOGIES).forEach(name => {
-    const btn = document.createElement('div'); btn.className = 'pill'; btn.innerText = name;
-    btn.onclick = () => { activePathName = name; document.getElementById('side-modal').style.display = 'flex'; };
+    const btn = document.createElement('div'); btn.className = 'pill path-btn'; btn.innerText = name;
+    btn.onclick = () => { 
+        activePathName = name; 
+        document.getElementById('side-modal').style.display = 'flex'; 
+    };
     grid.appendChild(btn);
   });
 }
@@ -172,7 +183,6 @@ window.addEventListener("touchmove", (e) => {
 
 new GLTFLoader().load("./head_eyes_v1.glb", (gltf) => {
   const model = gltf.scene; 
-  // Position head higher on screen for mobile/desktop clarity
   model.position.y = -0.6; 
   model.scale.setScalar(1.8 / new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y);
   let eyeL, eyeR;
