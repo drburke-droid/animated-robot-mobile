@@ -20,7 +20,6 @@
       z-index: 100; pointer-events: none;
     }
 
-    /* Start Instruction Overlay */
     #start-prompt {
       position: fixed; inset: 0; background: rgba(0,0,0,0.4);
       display: flex; align-items: center; justify-content: center;
@@ -31,6 +30,7 @@
       border: 1px solid #4cc9f0; border-radius: 50px;
       color: #4cc9f0; font-weight: bold; text-transform: uppercase;
       letter-spacing: 1px; box-shadow: 0 0 20px rgba(76,201,240,0.3);
+      text-align: center; font-size: 14px;
     }
 
     #mobile-hud {
@@ -86,7 +86,6 @@
       font-size: 11px; color: #4cc9f0; text-align: center; cursor: pointer;
     }
 
-    /* Fixed Active Selection Style */
     .pill.active-path {
       background: #4cc9f0 !important;
       color: #000 !important;
@@ -112,7 +111,7 @@
 </head>
 <body>
   <div id="dr-credit">Developed by Dr. Robert Burke</div>
-  <div id="start-prompt"><div class="prompt-box">Touch screen to lead gaze</div></div>
+  <div id="start-prompt"><div class="prompt-box">Touch and drag on screen<br>to lead gaze</div></div>
   <div id="app"></div>
   <div id="gaze-dot"></div>
 
@@ -121,6 +120,7 @@
         LIBRARY <div class="triangle"></div>
     </div>
     <div id="path-menu" class="dropdown-content">
+        <button class="menu-btn" style="width:100%; margin-bottom:10px; background:#ff4d6d; color:#fff; border:none;" onclick="resetSystem(); collapseAllMenus();">RESET ALL</button>
         <div id="pathology-grid" class="grid-2"></div>
     </div>
 
@@ -128,14 +128,14 @@
         CRANIAL NERVES <div class="triangle"></div>
     </div>
     <div id="cn-menu" class="dropdown-content">
-      <button class="menu-btn" style="width:100%; margin-bottom:10px; background:#ff4d6d; color:#fff;" onclick="resetSystem(); collapseAllMenus();">RESET ALL</button>
+      <button class="menu-btn" style="width:100%; margin-bottom:10px; background:#ff4d6d; color:#fff; border:none;" onclick="resetSystem(); collapseAllMenus();">RESET ALL</button>
       <div style="font-size:11px; margin-bottom:5px; color:#888;">RIGHT EYE (OD)</div>
       <div class="grid-3">
         <div class="pill" id="R-CN3" onclick="toggleState('R-CN3')">CN III</div>
         <div class="pill" id="R-CN4" onclick="toggleState('R-CN4')">CN IV</div>
         <div class="pill" id="R-CN6" onclick="toggleState('R-CN6')">CN VI</div>
       </div>
-      <div style="font-size:11px; margin:10px 0 5px; color:#888;">LEFT EYE (OS)</div>
+      <div style="font-size:11px; margin:15px 0 5px; color:#888;">LEFT EYE (OS)</div>
       <div class="grid-3">
         <div class="pill" id="L-CN3" onclick="toggleState('L-CN3')">CN III</div>
         <div class="pill" id="L-CN4" onclick="toggleState('L-CN4')">CN IV</div>
