@@ -30,7 +30,17 @@
       background: rgba(25, 25, 25, 0.95); border: 1px solid #4cc9f0;
       color: #4cc9f0; padding: 12px; border-radius: 8px;
       font-weight: bold; text-align: center; cursor: pointer;
+      display: flex; justify-content: center; align-items: center; gap: 10px;
     }
+
+    /* Triangle Animation */
+    .triangle {
+      width: 0; height: 0; 
+      border-left: 6px solid transparent; border-right: 6px solid transparent;
+      border-top: 8px solid #4cc9f0;
+      transition: transform 0.3s ease;
+    }
+    .open .triangle { transform: rotate(180deg); }
 
     .dropdown-content {
       display: none; background: rgba(15, 15, 15, 0.98);
@@ -54,10 +64,7 @@
     }
 
     @media (max-width: 900px) {
-      #side-hud {
-        flex-direction: column; justify-content: flex-end;
-        bottom: 35px; top: auto; padding: 10px; gap: 5px;
-      }
+      #side-hud { flex-direction: column; justify-content: flex-end; bottom: 35px; top: auto; padding: 10px; gap: 5px; }
       .muscle-panel { width: 100%; font-size: 10px; padding: 8px; }
     }
 
@@ -67,6 +74,13 @@
       font-size: 11px; color: #4cc9f0; text-align: center; cursor: pointer;
     }
 
+    /* Active Selection Style */
+    .pill.active-path {
+      background: #4cc9f0 !important;
+      color: #000 !important;
+      border-color: #fff !important;
+    }
+
     #gaze-dot {
       position: absolute; width: 26px; height: 26px;
       background: rgba(255, 0, 0, 0.5); border: 2px solid white;
@@ -74,12 +88,13 @@
       display: none; transform: translate(-50%, -50%);
     }
 
-    .paresis { color: #ffb703 !important; border-color: #ffb703 !important; }
-    .paralysis { color: #ff4d6d !important; border-color: #ff4d6d !important; text-decoration: line-through; }
+    .paresis { color: #ffb703 !important; border-color: #ffb703 !important; background: rgba(255, 183, 3, 0.15) !important;}
+    .paralysis { color: #ff4d6d !important; border-color: #ff4d6d !important; text-decoration: line-through; background: rgba(255, 77, 109, 0.15) !important;}
     
-    .row { display: grid; grid-template-columns: 35px 1fr 35px; gap: 8px; align-items: center; margin-bottom: 4px; }
+    .row { display: grid; grid-template-columns: 40px 1fr 40px; gap: 10px; align-items: center; margin-bottom: 4px; }
     .barWrap { height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
     .bar { height: 100%; width: 0%; background: #4cc9f0; transition: width 0.1s; }
+    .pct { font-family: monospace; font-size: 11px; text-align: right; }
   </style>
 </head>
 <body>
@@ -88,14 +103,18 @@
   <div id="gaze-dot"></div>
 
   <div id="mobile-hud">
-    <div class="menu-btn" onclick="toggleMenu('path-menu')">LIBRARY ▼</div>
+    <div id="path-header" class="menu-btn" onclick="toggleMenu('path-menu', 'path-header')">
+        LIBRARY <div class="triangle"></div>
+    </div>
     <div id="path-menu" class="dropdown-content">
         <div id="pathology-grid" class="grid-2"></div>
     </div>
 
-    <div class="menu-btn" onclick="toggleMenu('cn-menu')">CRANIAL NERVES ▼</div>
+    <div id="cn-header" class="menu-btn" onclick="toggleMenu('cn-menu', 'cn-header')">
+        CRANIAL NERVES <div class="triangle"></div>
+    </div>
     <div id="cn-menu" class="dropdown-content">
-      <button class="menu-btn" style="width:100%; margin-bottom:10px; background:#ff4d6d; color:#fff;" onclick="resetSystem()">RESET ALL</button>
+      <button class="menu-btn" style="width:100%; margin-bottom:10px; background:#ff4d6d; color:#fff;" onclick="resetSystem(); collapseAllMenus();">RESET ALL</button>
       <div style="font-size:11px; margin-bottom:5px; color:#888;">RIGHT EYE (OD)</div>
       <div class="grid-3">
         <div class="pill" id="R-CN3" onclick="toggleState('R-CN3')">CN III</div>
@@ -117,11 +136,11 @@
   </div>
 
   <div id="side-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:10000; align-items:center; justify-content:center; pointer-events:auto;">
-    <div style="background:#111; padding:25px; border-radius:15px; text-align:center; border:1px solid #4cc9f0; width:80%;">
+    <div style="background:#111; padding:25px; border-radius:15px; text-align:center; border:1px solid #4cc9f0; width:85%; max-width:400px;">
       <h3 id="modal-disease-name" style="color:#4cc9f0; margin-top:0;">SELECT LATERALITY</h3>
       <div style="display:flex; flex-direction:column; gap:10px; margin:20px 0;">
-        <div class="pill" onclick="applyPathology('right')">RIGHT</div>
-        <div class="pill" onclick="applyPathology('left')">LEFT</div>
+        <div class="pill" onclick="applyPathology('right')">RIGHT (OD)</div>
+        <div class="pill" onclick="applyPathology('left')">LEFT (OS)</div>
         <div class="pill" onclick="applyPathology('both')">BILATERAL</div>
       </div>
       <div style="color:#ff4d6d; font-weight:bold; cursor:pointer;" onclick="document.getElementById('side-modal').style.display='none'">CANCEL</div>
@@ -131,11 +150,22 @@
   <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
   <script type="module" src="./main.js"></script>
   <script>
-    window.toggleMenu = (id) => {
-      const el = document.getElementById(id);
-      const isVisible = el.style.display === 'block';
+    window.toggleMenu = (menuId, headerId) => {
+      const menu = document.getElementById(menuId);
+      const header = document.getElementById(headerId);
+      const isVisible = menu.style.display === 'block';
+      
+      collapseAllMenus();
+
+      if (!isVisible) {
+        menu.style.display = 'block';
+        header.classList.add('open');
+      }
+    }
+
+    window.collapseAllMenus = () => {
       document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
-      el.style.display = isVisible ? 'none' : 'block';
+      document.querySelectorAll('.menu-btn').forEach(h => h.classList.remove('open'));
     }
   </script>
 </body>
