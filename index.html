@@ -20,6 +20,19 @@
       z-index: 100; pointer-events: none;
     }
 
+    /* Start Instruction Overlay */
+    #start-prompt {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 3000; pointer-events: none; transition: opacity 0.5s;
+    }
+    .prompt-box {
+      padding: 15px 30px; background: rgba(20,20,20,0.9);
+      border: 1px solid #4cc9f0; border-radius: 50px;
+      color: #4cc9f0; font-weight: bold; text-transform: uppercase;
+      letter-spacing: 1px; box-shadow: 0 0 20px rgba(76,201,240,0.3);
+    }
+
     #mobile-hud {
       position: fixed; top: 10px; left: 10px; right: 10px;
       z-index: 1000; display: flex; flex-direction: column; gap: 8px;
@@ -33,7 +46,6 @@
       display: flex; justify-content: center; align-items: center; gap: 10px;
     }
 
-    /* Triangle Animation */
     .triangle {
       width: 0; height: 0; 
       border-left: 6px solid transparent; border-right: 6px solid transparent;
@@ -74,11 +86,12 @@
       font-size: 11px; color: #4cc9f0; text-align: center; cursor: pointer;
     }
 
-    /* Active Selection Style */
+    /* Fixed Active Selection Style */
     .pill.active-path {
       background: #4cc9f0 !important;
       color: #000 !important;
-      border-color: #fff !important;
+      border: 1px solid #fff !important;
+      box-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
     }
 
     #gaze-dot {
@@ -99,6 +112,7 @@
 </head>
 <body>
   <div id="dr-credit">Developed by Dr. Robert Burke</div>
+  <div id="start-prompt"><div class="prompt-box">Touch screen to lead gaze</div></div>
   <div id="app"></div>
   <div id="gaze-dot"></div>
 
