@@ -1,3 +1,107 @@
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+
+const MUSCLES = ["LR", "MR", "SR", "IR", "SO", "IO"];
+const APP_STATE = { ready: false, hasPointer: false, target: new THREE.Vector3() };
+const uiCache = { left: {}, right: {} };
+const gazeDot = document.getElementById('gaze-dot');
+const startPrompt = document.getElementById('start-prompt');
+
+const SYSTEM_STATE = {
+  nerves: { "R-CN3": 1, "R-CN4": 1, "R-CN6": 1, "L-CN3": 1, "L-CN4": 1, "L-CN6": 1 },
+  muscles: { 
+    right: { LR: 1, MR: 1, SR: 1, IR: 1, SO: 1, IO: 1 },
+    left: { LR: 1, MR: 1, SR: 1, IR: 1, SO: 1, IO: 1 }
+  }
+};
+
+const PATHOLOGIES = {
+  "CN III Palsy": { s: ['R', 'L', 'B'], f: (side) => setNerve(side, 3, 0) },
+  "CN IV Palsy": { s: ['R', 'L', 'B'], f: (side) => setNerve(side, 4, 0) },
+  "CN VI Palsy": { s: ['R', 'L', 'B'], f: (side) => setNerve(side, 6, 0) },
+  "INO (MLF)": { s: ['R', 'L', 'B'], f: (side) => {
+    if(side==='right'||side==='both') SYSTEM_STATE.muscles.right.MR = 0;
+    if(side==='left'||side==='both') SYSTEM_STATE.muscles.left.MR = 0;
+  }},
+  "Graves (TED)": { s: ['R', 'L', 'B'], f: (side) => {
+    const t = side==='both'?['right','left']:[side];
+    t.forEach(s=>{ SYSTEM_STATE.muscles[s].IR=0.3; SYSTEM_STATE.muscles[s].MR=0.5; });
+  }},
+  "Blowout Fx": { s: ['R', 'L'], f: (side) => { SYSTEM_STATE.muscles[side].IR = 0; }},
+  "Brown Syn.": { s: ['R', 'L'], f: (side) => { SYSTEM_STATE.muscles[side].IO = 0; }},
+  "Miller Fisher": { s: ['B'], f: () => { Object.keys(SYSTEM_STATE.nerves).forEach(k=>SYSTEM_STATE.nerves[k]=0.1); }},
+  "Wallenberg": { s: ['R', 'L'], f: (side) => { 
+    const isR = side === 'right'; SYSTEM_STATE.muscles[isR?'right':'left'].IR=0.5; SYSTEM_STATE.muscles[isR?'left':'right'].SR=0.5; 
+  }}
+};
+
+let activePathName = null;
+
+function setNerve(side, num, val) {
+  if(side === 'both') { SYSTEM_STATE.nerves['R-CN'+num] = val; SYSTEM_STATE.nerves['L-CN'+num] = val; }
+  else { SYSTEM_STATE.nerves[(side==='right'?'R':'L')+'-CN'+num] = val; }
+}
+
+window.resetSystem = () => {
+  Object.keys(SYSTEM_STATE.nerves).forEach(k => SYSTEM_STATE.nerves[k] = 1);
+  ['right','left'].forEach(s => MUSCLES.forEach(m => SYSTEM_STATE.muscles[s][m] = 1));
+  document.querySelectorAll('.path-btn').forEach(b => b.classList.remove('active-path'));
+  updateUIStyles();
+};
+
+window.toggleState = (id, side = null, m = null) => {
+  let cur = m ? SYSTEM_STATE.muscles[side][m] : SYSTEM_STATE.nerves[id];
+  let next = cur === 1 ? 0.5 : (cur === 0.5 ? 0 : 1);
+  if (m) SYSTEM_STATE.muscles[side][m] = next; else SYSTEM_STATE.nerves[id] = next;
+  updateUIStyles();
+};
+
+window.applyPathology = (side) => {
+  resetSystem();
+  PATHOLOGIES[activePathName].f(side);
+  document.querySelectorAll('.path-btn').forEach(b => {
+    if(b.innerText === activePathName) b.classList.add('active-path');
+  });
+  updateUIStyles();
+  document.getElementById('side-modal').style.display = 'none';
+  if(window.collapseAllMenus) window.collapseAllMenus();
+};
+
+function updateUIStyles() {
+  Object.entries(SYSTEM_STATE.nerves).forEach(([id, v]) => {
+    const el = document.getElementById(id); if(!el) return;
+    el.className = 'pill' + (v === 0.5 ? ' paresis' : (v === 0 ? ' paralysis' : ''));
+  });
+  ['left','right'].forEach(s => {
+    const sideKey = s === 'left' ? 'L' : 'R';
+    MUSCLES.forEach(m => {
+      const v = SYSTEM_STATE.muscles[s][m];
+      const el = document.querySelector(`#muscles${sideKey} .m-label-${m}`);
+      if(el) el.className = `m-label m-label-${m}` + (v===0.5?' paresis':(v===0?' paralysis':''));
+    });
+  });
+}
+
+function initUI() {
+  const sides = [{ id: "musclesR", key: "right", label: "Right Eye (OD)" }, { id: "musclesL", key: "left", label: "Left Eye (OS)" }];
+  sides.forEach(s => {
+    const el = document.getElementById(s.id); if(!el) return;
+    el.innerHTML = `<div style="color:#4cc9f0; font-weight:bold; margin-bottom:5px;">${s.label}</div>`;
+    MUSCLES.forEach(m => {
+      const row = document.createElement("div"); row.className = "row";
+      row.innerHTML = `<div class="m-label m-label-${m}" onclick="toggleState(null, '${s.key}', '${m}')">${m}</div><div class="barWrap"><div class="bar"></div></div><div class="pct">0%</div>`;
+      el.appendChild(row);
+      uiCache[s.key][m] = { bar: row.querySelector(".bar"), pct: row.querySelector(".pct") };
+    });
+  });
+  const grid = document.getElementById('pathology-grid'); if(!grid) return;
+  Object.keys(PATHOLOGIES).forEach(name => {
+    const btn = document.createElement('div'); btn.className = 'pill path-btn'; btn.innerText = name;
+    btn.onclick = () => { activePathName = name; document.getElementById('side-modal').style.display = 'flex'; };
+    grid.appendChild(btn);
+  });
+}
+
 function getRecruitment(isRight, targetYaw, targetPitch) {
   const side = isRight ? 'right' : 'left';
   const prefix = isRight ? 'R-' : 'L-';
@@ -10,20 +114,17 @@ function getRecruitment(isRight, targetYaw, targetPitch) {
     SO: SYSTEM_STATE.nerves[prefix+'CN4'] * SYSTEM_STATE.muscles[side].SO
   };
 
-  // Basal tone drift [cite: 35, 36]
   const driftX = (1 - h.LR) * -0.4 + (1 - h.MR) * 0.4;
   const driftY = (1 - h.SR) * -0.1 + (1 - h.IR) * 0.1 + (h.SR === 0 && h.IR === 0 ? -0.25 : 0);
 
-  // Responsiveness Boost for Rotation [cite: 37, 39, 42]
+  // Boosted Responsive Rotation
   let rotationYaw = isRight ? 
     (targetYaw < 0 ? targetYaw * h.LR * 1.5 : targetYaw * h.MR * 1.5) : 
     (targetYaw > 0 ? targetYaw * h.LR * 1.5 : targetYaw * h.MR * 1.5);
 
-  // Anatomical Blending (0 = Temporal, 1 = Nasal) [cite: 40]
   const nasalYaw = isRight ? targetYaw : -targetYaw;
   const blend = 1 / (1 + Math.exp(-(nasalYaw + 0.15) * 7)); 
 
-  // Physical Eye Rotation [cite: 42, 43]
   let rotationPitch;
   if (targetPitch > 0) { 
     rotationPitch = (targetPitch * 1.4) * ( (1 - blend) * h.SR + blend * h.IO );
@@ -31,16 +132,16 @@ function getRecruitment(isRight, targetYaw, targetPitch) {
     rotationPitch = (targetPitch * 2.8) * ( (1 - blend) * h.IR + blend * h.SO );
   }
 
-  const finalYaw = rotationYaw + (isRight ? -driftX : driftX);
-  const finalPitch = rotationPitch + driftY;
+  const fYaw = rotationYaw + (isRight ? -driftX : driftX);
+  const fPit = rotationPitch + driftY;
 
-  // RAW EFFORT (Calculated WITHOUT the 2.8x boost to prevent bar saturation) [cite: 44, 45, 52]
-  const effortY = Math.abs(targetPitch); 
-  const abd = isRight ? -finalYaw : finalYaw;
+  // Decoupled Effort for Bars (Anatomical Accuracy)
+  const effortY = Math.abs(targetPitch);
+  const abd = isRight ? -fYaw : fYaw;
   const add = -abd;
 
   return {
-    rotation: { y: finalYaw, x: finalPitch },
+    rotation: { y: fYaw, x: fPit },
     acts: {
       LR: (0.2 + Math.max(0, abd) * 1.8) * h.LR,
       MR: (0.2 + Math.max(0, add) * 1.8) * h.MR,
@@ -51,3 +152,69 @@ function getRecruitment(isRight, targetYaw, targetPitch) {
     }
   };
 }
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.z = 6.5;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.getElementById("app").appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff, 0, 0.5));
+const penlight = new THREE.PointLight(0xffffff, 80, 10);
+scene.add(penlight);
+
+const handleInput = (x, y) => {
+  if (startPrompt) {
+    startPrompt.style.opacity = '0';
+    setTimeout(() => startPrompt.style.display = 'none', 500);
+  }
+  const m = { x: (x / window.innerWidth) * 2 - 1, y: -(y / window.innerHeight) * 2 + 1 };
+  const r = new THREE.Raycaster(); r.setFromCamera(m, camera);
+  r.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1), -2.5), APP_STATE.target);
+  APP_STATE.hasPointer = true;
+  if (gazeDot) {
+    gazeDot.style.display = 'block';
+    gazeDot.style.left = x + 'px';
+    gazeDot.style.top = y + 'px';
+  }
+};
+
+window.addEventListener("pointermove", (e) => handleInput(e.clientX, e.clientY));
+window.addEventListener("touchmove", (e) => {
+    if (e.touches.length > 0) {
+      e.preventDefault();
+      handleInput(e.touches[0].clientX, e.touches[0].clientY);
+    }
+}, {passive: false});
+
+new GLTFLoader().load("./head_eyes_v1.glb", (gltf) => {
+  const model = gltf.scene;
+  model.position.y = -0.6;
+  model.scale.setScalar(1.8 / new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y);
+  let eyeL, eyeR;
+  model.traverse(o => {
+    if (o.name === "Eye_L") eyeL = o; if (o.name === "Eye_R") eyeR = o;
+    if (o.name.toLowerCase().includes("cornea")) o.material = new THREE.MeshPhysicalMaterial({ transmission: 1, roughness: 0 });
+  });
+  scene.add(model);
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initUI); } else { initUI(); }
+  APP_STATE.ready = true;
+  function animate() {
+    requestAnimationFrame(animate);
+    if (!APP_STATE.ready || !APP_STATE.hasPointer) return;
+    penlight.position.set(APP_STATE.target.x, APP_STATE.target.y, APP_STATE.target.z + 0.6);
+    [ {mesh: eyeL, isR: false, s: "left"}, {mesh: eyeR, isR: true, s: "right"} ].forEach(i => {
+      const eyePos = new THREE.Vector3(); i.mesh.getWorldPosition(eyePos);
+      const res = getRecruitment(i.isR, Math.atan2(APP_STATE.target.x - eyePos.x, APP_STATE.target.z - eyePos.z), Math.atan2(APP_STATE.target.y - eyePos.y, APP_STATE.target.z - eyePos.z));
+      i.mesh.rotation.set(-res.rotation.x, res.rotation.y, 0, 'YXZ');
+      MUSCLES.forEach(m => {
+        const cache = uiCache[i.s][m];
+        const valDisplay = Math.min(100, Math.round((res.acts[m] / 0.7) * 100));
+        cache.bar.style.width = valDisplay + "%"; cache.pct.innerText = valDisplay + "%";
+        cache.bar.style.background = res.acts[m] < 0.05 ? "#ff4d6d" : (res.acts[m] < 0.25 ? "#ffb703" : "#4cc9f0");
+      });
+    });
+    renderer.render(scene, camera);
+  }
+  animate();
+});
