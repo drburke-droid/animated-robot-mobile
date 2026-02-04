@@ -5,6 +5,7 @@ const MUSCLES = ["LR", "MR", "SR", "IR", "SO", "IO"];
 const APP_STATE = { ready: false, hasPointer: false, target: new THREE.Vector3() };
 const uiCache = { left: {}, right: {} };
 const gazeDot = document.getElementById('gaze-dot');
+const startPrompt = document.getElementById('start-prompt');
 
 const SYSTEM_STATE = {
   nerves: { "R-CN3": 1, "R-CN4": 1, "R-CN6": 1, "L-CN3": 1, "L-CN4": 1, "L-CN6": 1 },
@@ -59,7 +60,7 @@ window.applyPathology = (side) => {
   resetSystem();
   PATHOLOGIES[activePathName].f(side);
   
-  // Highlight the active selection
+  // Apply Highlight
   document.querySelectorAll('.path-btn').forEach(b => {
     if(b.innerText === activePathName) b.classList.add('active-path');
   });
@@ -162,6 +163,12 @@ const penlight = new THREE.PointLight(0xffffff, 80, 10);
 scene.add(penlight);
 
 const handleInput = (x, y) => {
+  // Instruction Removal logic
+  if (startPrompt) {
+    startPrompt.style.opacity = '0';
+    setTimeout(() => startPrompt.style.display = 'none', 500);
+  }
+
   const m = { x: (x / window.innerWidth) * 2 - 1, y: -(y / window.innerHeight) * 2 + 1 };
   const r = new THREE.Raycaster(); r.setFromCamera(m, camera);
   r.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,0,1), -2.5), APP_STATE.target);
